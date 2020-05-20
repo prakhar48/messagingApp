@@ -32,6 +32,11 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         self.setupView()
     }
     
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // MARK:- Business logic
     
     // UI element creation following closures

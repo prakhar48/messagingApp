@@ -30,6 +30,11 @@ class HomeViewController: UIViewController {
         self.setupVideoPlayer()
     }
     
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     //MARK:- Business logic
     
     // Create player layer and assign path to video
