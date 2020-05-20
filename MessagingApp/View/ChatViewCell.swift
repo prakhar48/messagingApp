@@ -12,6 +12,7 @@ import UIKit
 
 class ChatViewCell: UICollectionViewCell {
     
+    // MARK: - UIElements design
     var textView: UITextView = {
         let textV = UITextView()
         textV.font = UIFont.systemFont(ofSize: 16)
@@ -35,7 +36,15 @@ class ChatViewCell: UICollectionViewCell {
     
     var profileImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(systemName: "person.circle.fill")
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.layer.cornerRadius = 16
+        imageView.layer.masksToBounds = true
+        return imageView
+    }()
+    
+    var imageMessageView: UIImageView = {
+        let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.layer.cornerRadius = 16
@@ -55,12 +64,19 @@ class ChatViewCell: UICollectionViewCell {
         addSubview(textView)
         addSubview(profileImageView)
         
+        bubbleView.addSubview(imageMessageView)
+        
+        imageMessageView.leftAnchor.constraint(equalTo: bubbleView.leftAnchor).isActive = true
+        imageMessageView.topAnchor.constraint(equalTo: bubbleView.topAnchor).isActive = true
+        imageMessageView.widthAnchor.constraint(equalTo: bubbleView.widthAnchor).isActive = true
+        imageMessageView.heightAnchor.constraint(equalTo: bubbleView.heightAnchor).isActive = true
+        
         bubbleRightAnchor = bubbleView.rightAnchor.constraint(equalTo: self.rightAnchor, constant: -8)
         bubbleRightAnchor?.isActive = true
         bubbleLeftAnchor = bubbleView.leftAnchor.constraint(equalTo: profileImageView.rightAnchor, constant: 8)
         
         bubbleView.topAnchor.constraint(equalTo: self.topAnchor).isActive = true
-        bubbleWidthConstraint = bubbleView.widthAnchor.constraint(equalToConstant: 200)
+        bubbleWidthConstraint = bubbleView.widthAnchor.constraint(equalToConstant: 0)
         bubbleWidthConstraint?.isActive = true
         bubbleView.heightAnchor.constraint(equalTo: self.heightAnchor).isActive = true
         

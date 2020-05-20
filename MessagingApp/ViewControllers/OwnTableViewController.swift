@@ -23,12 +23,12 @@ class OwnTableViewController: UITableViewController{
     // MARK:- LifeCycle methods
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.ManageFunctionCalls()
+        self.manageFunctionCalls()
     }
     
     //MARK:- Business logic
     // Manage all the method calls during view load
-    fileprivate func ManageFunctionCalls(){
+    fileprivate func manageFunctionCalls(){
         self.setupView()
         message.removeAll()
         messageDictionary.removeAll()
@@ -57,10 +57,45 @@ class OwnTableViewController: UITableViewController{
             // Display navigation title name of current user from server
             Database.database().reference().child("users").child(userId!).observeSingleEvent(of: .value) { (snapShot) in
                 if let dictionary = snapShot.value as? [String : AnyObject]{
-                    self.navigationItem.title = (dictionary["firstname"] as? String ?? "") + " " + (dictionary["lastname"] as? String ?? "")
+                    let user = User()
+                    user.setValuesForKeys(dictionary)
+                    self.setNavigationBar(user: user)
                 }
             }
         }
+    }
+    
+    func setNavigationBar(user: User){
+        let titleView = UIView()
+        titleView.frame = CGRect(x: 0, y: 0, width: 80, height: 40)
+        
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFit
+        imageView.layer.cornerRadius = 20
+        imageView.layer.masksToBounds = true
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        if let imageUrl = user.profileImageUrl{
+            imageView.loadImageFromServerUsingUrl(urlString: imageUrl)
+        }
+        
+        let textLabel = UILabel()
+        textLabel.text = (user.firstname ?? "") + " " + (user.lastname ?? "")
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        titleView.addSubview(imageView)
+        titleView.addSubview(textLabel)
+        
+        imageView.leftAnchor.constraint(equalTo: titleView.leftAnchor).isActive = true
+        imageView.centerYAnchor.constraint(equalTo: titleView.centerYAnchor).isActive = true
+        imageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        imageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        
+        textLabel.leftAnchor.constraint(equalTo: imageView.rightAnchor, constant: 8).isActive = true
+        textLabel.centerYAnchor.constraint(equalTo: imageView.centerYAnchor).isActive = true
+        textLabel.heightAnchor.constraint(equalTo: imageView.heightAnchor).isActive = true
+        textLabel.rightAnchor.constraint(equalTo: titleView.rightAnchor).isActive = true
+        
+        self.navigationItem.titleView = titleView
     }
     
     // Method to handle signout from server and navigate to home
@@ -116,8 +151,7 @@ class OwnTableViewController: UITableViewController{
         let messageRef = Database.database().reference().child("messages").child(messageID)
         messageRef.observeSingleEvent(of: .value, with: { (messageSnapShot) in
             if let dictionary = messageSnapShot.value as? [String : AnyObject]{
-                let localMessage = Message()
-                localMessage.setValuesForKeys(dictionary)
+                let localMessage = Message(dictionary: dictionary)
                 if let chatPartnerID = localMessage.chatPartnerID(){
                     self.messageDictionary[chatPartnerID] = localMessage
                 }

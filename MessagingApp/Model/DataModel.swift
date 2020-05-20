@@ -12,8 +12,10 @@ import UIKit
 
 @objcMembers
 class User: NSObject{
+    
     var userid: String?
     var firstname: String?
     var lastname: String?
     var email: String?
+    var profileImageUrl: String?
 }

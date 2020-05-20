@@ -44,7 +44,7 @@ class UsersViewController: UITableViewController {
         // Feed the user's data into cells
         cell.textLabel?.text = (user.firstname ?? " ") + " " + (user.lastname ?? " ")
         cell.detailTextLabel?.text = user.email
-        cell.profileImageView.image = UIImage(systemName: "person.circle.fill")
+        cell.profileImageView.loadImageFromServerUsingUrl(urlString: user.profileImageUrl!)
         
         return cell
     }

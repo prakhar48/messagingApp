@@ -11,7 +11,7 @@
 import UIKit
 import Firebase
 
-class LoginViewController: UIViewController {
+class LoginViewController: UIViewController, UITextFieldDelegate {
     
     //MARK:- Outlets
     @IBOutlet weak var emailTF: UITextField!
@@ -48,6 +48,13 @@ class LoginViewController: UIViewController {
     func showErrorMessage(_ message: String){
         errorLabel.text = message
         errorLabel.alpha = 1
+    }
+    
+    // Method to dismiss keyboard when password is entered
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        passwordTF.resignFirstResponder()
+        loginButtonClick((Any).self)
+        return true
     }
     
     // Login button action to perform user login using firebase authentication

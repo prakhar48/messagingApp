@@ -21,6 +21,8 @@ class UserCell: UITableViewCell {
         }
     }
     
+    // MARK: - Business Logic
+    // Method responsible to setup user profile in the view
     private func setupProfile(){
         if let id = message?.chatPartnerID(){
             let database = Database.database().reference().child("users").child(id)
@@ -29,12 +31,13 @@ class UserCell: UITableViewCell {
                     let firstname = dictionary["firstname"] as! String
                     let lastname = dictionary["lastname"] as! String
                     self.textLabel?.text = firstname + " " + lastname
-                    self.profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    self.profileImageView.loadImageFromServerUsingUrl(urlString: dictionary["profileImageUrl"] as! String)
                 }
             }, withCancel: nil)
         }
     }
     
+    // Fetch the current time based on the timezone provided
     fileprivate func getTimeStamp(message: Message) -> String{
         var dateString: String = ""
         if let seconds = message.timeStamp?.doubleValue{
@@ -46,6 +49,7 @@ class UserCell: UITableViewCell {
         return dateString
     }
     
+    // MARK: - UIElements design
     override func layoutSubviews() {
         super.layoutSubviews()
         

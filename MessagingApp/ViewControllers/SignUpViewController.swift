@@ -11,7 +11,7 @@
 import UIKit
 import Firebase
 
-class SignUpViewController: UIViewController {
+class SignUpViewController: UIViewController, UITextFieldDelegate {
     
     // MARK:- Outlets
     @IBOutlet weak var firstNameTF: UITextField!
@@ -21,6 +21,7 @@ class SignUpViewController: UIViewController {
     @IBOutlet weak var signUpButton: UIButton!
     @IBOutlet weak var errorLabel: UILabel!
     @IBOutlet weak var messageLabel: UILabel!
+    @IBOutlet weak var profileImageView: UIImageView!
     
     // MARK:- LifeCycle Methods
     override func viewDidLoad() {
@@ -41,7 +42,7 @@ class SignUpViewController: UIViewController {
         
         // Password validation check
         if Utilities.isPasswordValid(cleanedPassword) == false{
-            return "Password must contain: \n 1. minimum of 8 characters \n 2. must contain a special character \n 3. must contain a number"
+            return "Password must contain a minimum of 8 characters,a special symbol and a number"
         }
         return nil
     }
@@ -59,31 +60,7 @@ class SignUpViewController: UIViewController {
         if error != nil{
             self.showErrorMessage(error!)
         }else{
-            
-            let email = emailTF.text!.trimmingCharacters(in: .whitespacesAndNewlines)
-            let password = passwordTF.text!.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            // User creation in firebase firestore
-            Auth.auth().createUser(withEmail: email, password: password) { (result, error) in
-                if error != nil{
-                    self.showErrorMessage("Error in account creation")
-                }else{
-                    guard let uid = result?.user.uid else {
-                        return
-                    }
-                    guard let emailid = self.emailTF.text, let firstname = self.firstNameTF.text, let lastname = self.lastNameTF.text else {
-                        return
-                    }
-                    
-                    let ref = Database.database().reference()
-                    let userRefernce = ref.child("users").child(uid)
-                    let values = ["firstname": firstname, "lastname": lastname, "email": emailid]
-                    userRefernce.updateChildValues(values)
-                    
-                    // Show alert window with a message
-                    self.showAlertWindow(sender as! UIButton)
-                }
-            }
+            self.registerUserInDatabase()
         }
     }
     
@@ -94,6 +71,11 @@ class SignUpViewController: UIViewController {
         self.setupTextFielf()
         errorLabel.alpha = 0
         messageLabel.text = "Let's sign up"
+        self.profileImageView.isUserInteractionEnabled = true
+        self.profileImageView.contentMode = .scaleAspectFit
+        self.profileImageView.layer.cornerRadius = 60
+        self.profileImageView.layer.masksToBounds = true
+        self.profileImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleProfileImageView)))
     }
     
     // Method to design placeholder text
@@ -112,12 +94,23 @@ class SignUpViewController: UIViewController {
         Utilities.styleTextField(passwordTF)
     }
     
+    // Method to dismiss keyboard
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        passwordTF.resignFirstResponder()
+        signUpButtonClick((Any).self)
+        return true
+    }
+    
     // Create and display an alert window with some message
-    fileprivate func showAlertWindow(_ sender: UIButton){
+     func showAlertWindow(){
         // Create the alert
         let alert = UIAlertController(title: "Thank you for sign up!", message: "Please proceed to login", preferredStyle: UIAlertController.Style.alert)
         // Add an action (button)
         alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: { (UIAlertAction) in
+            self.emailTF.text = nil
+            self.passwordTF.text = nil
+            self.firstNameTF.text = nil
+            self.lastNameTF.text = nil
             let loginViewController = self.storyboard?.instantiateViewController(identifier: Constants.StroyBoards.loginViewControllerID)
             self.navigationController?.pushViewController(loginViewController!, animated: true)
         }))

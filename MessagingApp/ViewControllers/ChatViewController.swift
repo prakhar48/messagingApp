@@ -11,7 +11,7 @@
 import UIKit
 import Firebase
 
-class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICollectionViewDelegateFlowLayout{
+class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICollectionViewDelegateFlowLayout, UIImagePickerControllerDelegate, UINavigationControllerDelegate{
     
     // MARK:- Outlets and listen to user's via closure
     var user: User? {
@@ -48,6 +48,21 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         containerView.frame = CGRect(x: 0, y: 0, width: self.view.frame.width, height: 80)
         containerView.backgroundColor = .white
         
+        // Create upload image icon in the container
+        
+        let uploadImageIcon = UIImageView()
+        uploadImageIcon.image = UIImage(systemName: "photo.on.rectangle")
+        uploadImageIcon.contentMode = .scaleAspectFit
+        uploadImageIcon.isUserInteractionEnabled = true
+        uploadImageIcon.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleImageUpload)))
+        uploadImageIcon.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(uploadImageIcon)
+        
+        uploadImageIcon.leftAnchor.constraint(equalTo: containerView.leftAnchor, constant: 10).isActive = true
+        uploadImageIcon.centerYAnchor.constraint(equalTo: containerView.centerYAnchor).isActive = true
+        uploadImageIcon.widthAnchor.constraint(equalToConstant: 38).isActive = true
+        uploadImageIcon.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        
         // Create send message button
         let sendButton = UIButton(type: .system)
         sendButton.setTitle("Send", for: .normal)
@@ -63,7 +78,7 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         // Add constraints to testField
         containerView.addSubview(textField)
         
-        textField.leftAnchor.constraint(equalTo: containerView.leftAnchor, constant: 10).isActive = true
+        textField.leftAnchor.constraint(equalTo: uploadImageIcon.rightAnchor, constant: 10).isActive = true
         textField.centerYAnchor.constraint(equalTo: containerView.centerYAnchor).isActive = true
         textField.heightAnchor.constraint(equalTo: containerView.heightAnchor).isActive = true
         textField.rightAnchor.constraint(equalTo: sendButton.leftAnchor).isActive = true
@@ -94,6 +109,60 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         return true
     }
     
+    // Method to upload the images on user action
+    @objc fileprivate func handleImageUpload(){
+        
+        // Create instance of UIImagePickerController to access media from device
+        let imagePickerController = UIImagePickerController()
+        imagePickerController.delegate = self
+        imagePickerController.allowsEditing = true
+        present(imagePickerController, animated: true, completion: nil)
+    }
+    
+    // Delegate method of UIImagePickerController when cancel button is pressed
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true, completion: nil)
+    }
+    
+    // Delegate method of UIImagePickerController when user selects an image
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        var selectedImageFromPicker: UIImage?
+        if let editedImage = info[.editedImage] as? UIImage{
+            selectedImageFromPicker = editedImage
+        }else if let originalImage = info[.originalImage] as? UIImage{
+            selectedImageFromPicker = originalImage
+        }
+        
+        if let selectedImage = selectedImageFromPicker{
+            uploadSelectedImageToServer(sendImage: selectedImage)
+        }
+        dismiss(animated: true, completion: nil)
+    }
+    
+    // Upload selected image to firebase via the method
+    fileprivate func uploadSelectedImageToServer(sendImage image: UIImage){
+        let uniqueImageName = UUID().uuidString
+        let storageRef = Storage.storage().reference().child("message_image").child("\(uniqueImageName).jpeg")
+        if let uploadData = image.jpegData(compressionQuality: 0.2){
+            storageRef.putData(uploadData, metadata: nil) { (metaData, error) in
+                if error != nil{
+                    print("Error \(String(describing: error))")
+                    return
+                }
+                storageRef.downloadURL { (url, error) in
+                    if error != nil{
+                        print("Error \(String(describing: error))")
+                        return
+                    }else{
+                        if let localURl = url?.absoluteString{
+                            self.uploadImageMessageToDatabase(imageUrl: localURl, image: image)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     // Method to observe messages from firebase server
     fileprivate func observeMessages(){
         guard let uid = Auth.auth().currentUser?.uid, let toID = user?.userid else {
@@ -108,11 +177,13 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
                 guard let dictionary = dataSnapShot.value as? [String : AnyObject] else{
                     return
                 }
-                let messages = Message()
-                messages.setValuesForKeys(dictionary)
-                self.message.append(messages)
+                self.message.append(Message(dictionary: dictionary))
                 DispatchQueue.main.async {
                     self.collectionView.reloadData()
+                    if self.message.count > 0{
+                        let indexPath = NSIndexPath(item: self.message.count - 1, section: 0)
+                        self.collectionView.scrollToItem(at: indexPath as IndexPath, at: .bottom, animated: true)
+                    }
                 }
             }, withCancel: nil)
             
@@ -126,16 +197,45 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         self.collectionView.register(ChatViewCell.self, forCellWithReuseIdentifier: cellID)
         self.collectionView.alwaysBounceVertical = true
         self.collectionView.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+        keyboardObserver()
+    }
+    
+    // Method to add observer on keybord
+    private func keyboardObserver(){
+        NotificationCenter.default.addObserver(self, selector: #selector(handleKeyboardObserver), name: UIResponder.keyboardDidShowNotification, object: nil)
+    }
+    
+    @objc private func handleKeyboardObserver(){
+        if message.count > 0{
+            let indexPath = NSIndexPath(item: message.count - 1, section: 0)
+            self.collectionView.scrollToItem(at: indexPath as IndexPath, at: .bottom, animated: true)
+        }
     }
     
     // Method to send the typed messages to the database
     @objc fileprivate func handleSendButton(){
+        if !textField.text!.isEmpty{
+            let properties: [String : AnyObject] = ["text" : textField.text!] as [String : AnyObject]
+            sendMethodWithProperties(properties: properties)
+        }
+    }
+    
+    // Method to update the database with the image as messages
+    fileprivate func uploadImageMessageToDatabase(imageUrl: String, image: UIImage){
+        let properties: [String : AnyObject] = ["imageUrl" : imageUrl, "imageWidth" : image.size.width , "imageHeight" : image.size.height] as [String : AnyObject]
+        sendMethodWithProperties(properties: properties)
+    }
+    
+    // Method to send data to the server with some properties
+    
+    private func sendMethodWithProperties(properties: [String : AnyObject]){
         let database = Database.database().reference().child("messages")
         let childRef = database.childByAutoId()
         let toID = user!.userid!
         let fromID = Auth.auth().currentUser!.uid
         let timeStamp: NSNumber = NSNumber(value: NSDate().timeIntervalSince1970)
-        let values = ["text" : textField.text!, "toID" : toID, "fromID" : fromID, "timeStamp" : timeStamp] as [String : Any]
+        var values = ["toID" : toID, "fromID" : fromID, "timeStamp" : timeStamp] as [String : Any]
+        properties.forEach({values[$0] = $1})
         childRef.updateChildValues(values) { (error, reference) in
             if error != nil{
                 print("Error \(String(describing: error))")
@@ -171,21 +271,39 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
         cell.textView.text = messages.text
         self.setupCell(cell: cell, messages: messages)
         
-        cell.bubbleWidthConstraint?.constant = getEstimatedRowHeight(text: messages.text!).width + 30
+        if let textMessage = messages.text {
+            cell.bubbleWidthConstraint?.constant = getEstimatedRowHeight(text: textMessage).width + 30
+            cell.textView.isHidden = false
+        }else if messages.imageUrl != nil{
+            cell.textView.isHidden = true
+            cell.bubbleWidthConstraint?.constant = 200
+        }
         return cell
     }
     
     // Method to setup cells and adjust the color of text message
     private func setupCell(cell: ChatViewCell, messages: Message){
+        if let profileImageURL = self.user?.profileImageUrl{
+            cell.profileImageView.loadImageFromServerUsingUrl(urlString: profileImageURL)
+        }
+        
+        if let messageURL = messages.imageUrl{
+            cell.imageMessageView.loadImageFromServerUsingUrl(urlString: messageURL)
+            cell.bubbleView.backgroundColor = .clear
+            cell.imageMessageView.isHidden = false
+        }else{
+            cell.imageMessageView.isHidden = true
+        }
+        
         if messages.fromID == Auth.auth().currentUser?.uid{
-            // Outgoing message
+            // Outgoing message bubble design
             cell.bubbleView.backgroundColor = ChatViewCell.blueColor
             cell.textView.textColor = UIColor.white
             cell.profileImageView.isHidden = true
             cell.bubbleRightAnchor?.isActive = true
             cell.bubbleLeftAnchor?.isActive = false
         }else{
-            // Incoming message
+            // Incoming message bubble design
             cell.bubbleView.backgroundColor = UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0)
             cell.textView.textColor = UIColor.black
             cell.bubbleRightAnchor?.isActive = false
@@ -195,10 +313,16 @@ class ChatViewController: UICollectionViewController, UITextFieldDelegate, UICol
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        
         var height: CGFloat = 0
         let width = UIScreen.main.bounds.width
-        if let text = message[indexPath.row].text{
+        let messageData = message[indexPath.item]
+        
+        // Set estimated row height based on text or image
+        if let text = messageData.text{
             height = getEstimatedRowHeight(text: text).height + 20
+        }else if let imageWidth = messageData.imageWidth?.floatValue, let imageHeight = messageData.imageHeight?.floatValue{
+            height = CGFloat(imageHeight / imageWidth * 200)
         }
         return CGSize(width: width, height: height)
     }
